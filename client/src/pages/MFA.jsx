@@ -4,7 +4,7 @@ import "../styles/Login.css";
 import { useNavigate } from "react-router-dom";
 import { useSession } from "../hooks/useSession";
 
-const logo = "/Logo.webp"; // place in client/public/Logo.webp
+const logo = "/Logo.jpg"; // place in client/public/Logo.webp
 
 export default function MFA() {
   const navigate = useNavigate();

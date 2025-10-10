@@ -4,7 +4,7 @@ import SplineBG from "../components/SplineBG";
 import { useSession } from "../hooks/useSession";
 import { useNavigate } from "react-router-dom";
 
-const logo = "/Logo.webp";
+const logo = "/Logo.jpg";
 
 function rands(cents) {
   const n = Number(cents || 0);

@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { EMAIL_RX, ACCOUNT_RX } from "../lib/patterns";
 import { useSession } from "../hooks/useSession";
 
-const logo = "/Logo.webp"; // place in client/public/Logo.webp
+const logo = "/Logo.jpg"; // place in client/public/Logo.webp
 
 export default function Login() {
   const [userType, setUserType] = useState("customer");

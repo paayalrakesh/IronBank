@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { EMAIL_RX, NAME_RX, ID_RX, ACCOUNT_RX, PASSWORD_RX } from "../lib/patterns";
 import { useSession } from "../hooks/useSession";
 
-const logo = "/Logo.webp"; // place in client/public/Logo.webp
+const logo = "/Logo.jpg"; // place in client/public/Logo.webp
 
 export default function Register() {
   const [formData, setFormData] = useState({
