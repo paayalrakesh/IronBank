@@ -76,8 +76,9 @@ export default function Register() {
         return;
       }
 
-      alert("✅ Registration successful!");
-      navigate("/login");
+      // 🔧 CHANGE: store email and go to MFA so the OTP flow works after registration
+      localStorage.setItem("email", formData.email.trim());
+      navigate("/mfa");
     } catch (err) {
       console.error("Register error:", err);
       alert(err?.message || "Network or server error");

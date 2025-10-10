@@ -4,10 +4,10 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-  "dev": "nodemon src/index.js",
-  "seed:admin": "node src/seedAdmin.js",
-  "seed:data": "node src/seedData.js"
-},
+    "dev": "nodemon src/index.js",
+    "seed:admin": "node src/seedAdmin.js",
+    "seed:data": "node src/seedData.js"
+  },
   "dependencies": {
     "argon2": "^0.31.2",
     "compression": "^1.7.4",
@@ -20,6 +20,7 @@
     "hpp": "^0.2.3",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.6.0",
+    "nodemailer": "^7.0.9",
     "zod": "^3.23.8"
   },
   "devDependencies": {

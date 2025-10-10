@@ -20,12 +20,10 @@ export default function Login() {
   const navigate = useNavigate();
   const { user, loading } = useSession();
 
-  // if already authenticated, go straight to dashboard
   useEffect(() => {
     if (!loading && user) navigate("/dashboard");
   }, [loading, user, navigate]);
 
-  // Base URL works with proxy ("/") or direct .env (http://localhost:3001/)
   const RAW_API = import.meta.env.VITE_API_URL ?? "/";
   const API_BASE = RAW_API.endsWith("/") ? RAW_API : RAW_API + "/";
 
@@ -175,12 +173,11 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                 />
               </div>
-                  {errors.password && <small className="error">{errors.password}</small>}
-                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
-                  <Link to="/forgot" className="link-btn">Forgot password?</Link>
+              {errors.password && <small className="error">{errors.password}</small>}
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+                <Link to="/forgot" className="link-btn">Forgot password?</Link>
               </div>
-              </div>
-
+            </div>
 
             <button type="submit" className="btn" disabled={disabled}>
               {disabled ? "Please wait..." : "Login"}

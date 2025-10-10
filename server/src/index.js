@@ -26,14 +26,13 @@ const ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 app.use(cors({ origin: ORIGIN, credentials: true }));
 
 /* ---------- Rate limiters ---------- */
-const globalLimiter   = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
-const loginLimiter    = rateLimit({ windowMs: 10 * 60 * 1000, max: 30 });
-const otpVerifyLimiter= rateLimit({ windowMs: 10 * 60 * 1000, max: 50 });
-const otpSendLimiter  = rateLimit({ windowMs: 10 * 60 * 1000, max: 20 });
-const forgotLimiter   = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
-const resetLimiter    = rateLimit({ windowMs: 15 * 60 * 1000, max: 40 });
+const globalLimiter    = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
+const loginLimiter     = rateLimit({ windowMs: 10 * 60 * 1000, max: 30 });
+const otpVerifyLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 50 });
+const otpSendLimiter   = rateLimit({ windowMs: 10 * 60 * 1000, max: 20 });
+const forgotLimiter    = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
+const resetLimiter     = rateLimit({ windowMs: 15 * 60 * 1000, max: 40 });
 
-// Apply
 app.use(globalLimiter);
 app.use("/auth/login", loginLimiter);
 app.use("/auth/verifyOTP", otpVerifyLimiter);
@@ -51,5 +50,10 @@ app.use("/banking", requireAuth, bankingRoutes);      // protected banking API
 /* ---------- DB + start ---------- */
 const PORT = Number(process.env.PORT || 3001);
 await mongoose.connect(process.env.MONGO_URI);
+
+// nice, explicit DB log
+const c = mongoose.connection;
 console.log("✅ MongoDB connected");
+console.log(`🔗 DB host: ${c.host}  db: ${c.name}`);
+
 app.listen(PORT, () => console.log(`🔓 API running on http://localhost:${PORT}`));

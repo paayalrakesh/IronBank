@@ -1,15 +1,18 @@
-// Email: simple, safe
-export const EMAIL_RX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
+// Email: basic but solid (no spaces, one @, a dot TLD 2+)
+export const EMAIL_RX   = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-// Names: letters, spaces, apostrophe, hyphen (2–50 chars total)
-export const NAME_RX = /^[A-Za-z][A-Za-z\s'\-]{1,49}$/;
+// Names: letters + spaces/’-/ only, 2–60 chars, must start with a letter
+export const NAME_RX    = /^[A-Za-z][A-Za-z\s'-]{1,59}$/;
 
-// South African ID: exactly 13 digits
-export const ID_RX = /^\d{13}$/;
+// SA ID: exactly 13 digits
+export const ID_RX      = /^\d{13}$/;
 
 // Bank account: exactly 10 digits
 export const ACCOUNT_RX = /^\d{10}$/;
 
-// Strong password: >=10 chars, upper+lower+digit+symbol
+// Password: 8–64, at least 1 lower, 1 upper, 1 digit, 1 special
 export const PASSWORD_RX =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[ !"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]).{10,}$/;
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,64}$/;
+
+// Helper for <input pattern="..."> (turn a RegExp into a string)
+export const rxStr = (rx) => rx.source;
