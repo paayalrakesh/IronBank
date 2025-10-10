@@ -4,6 +4,7 @@ import argon2 from "argon2";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 import { EMAIL_RX, NAME_RX, ID_RX, ACCOUNT_RX, PASSWORD_RX } from "../patterns.js";
+import { Account } from "../models/Account.js";
 
 const router = Router();
 
@@ -29,8 +30,6 @@ const verifySchema = z.object({
   code: z.string().regex(/^\d{6}$/)
 });
 
-// ----------------------------------------------------------------
-
 function sign(user) {
   return jwt.sign(
     { sub: user._id.toString(), role: user.role, email: user.email },
@@ -47,15 +46,18 @@ async function storeOtpForUser(user, code) {
   const otpHash = await argon2.hash(code, { type: argon2.argon2id });
   user.mfa = {
     otpHash,
-    otpExpiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 mins
+    otpExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
     attempts: 0,
     lastSentAt: new Date()
   };
   await user.save();
 }
 
-// ----------------------------------------------------------------
+function random10() {
+  return String(Math.floor(1000000000 + Math.random() * 9000000000));
+}
 
+// REGISTER (also create default accounts)
 router.post("/register", async (req, res) => {
   try {
     const input = registerSchema.parse(req.body);
@@ -79,6 +81,23 @@ router.post("/register", async (req, res) => {
       role: "customer"
     });
 
+    await Account.create([
+      {
+        user: user._id,
+        number: input.accountNumber,
+        type: "Cheque",
+        currency: "ZAR",
+        balanceCents: 1250000
+      },
+      {
+        user: user._id,
+        number: random10(),
+        type: "Savings",
+        currency: "ZAR",
+        balanceCents: 2589000
+      }
+    ]);
+
     return res.status(201).json({
       message: "Registered",
       user: { id: user._id, email: user.email, role: user.role }
@@ -95,7 +114,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// Login → generate OTP (no session cookie yet)
+// LOGIN → generate OTP (no session yet)
 router.post("/login", async (req, res) => {
   try {
     const input = loginSchema.parse(req.body);
@@ -127,7 +146,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Verify OTP → issue session cookie
+// VERIFY OTP → issue session cookie
 router.post("/verifyOTP", async (req, res) => {
   try {
     const input = verifySchema.parse(req.body);
@@ -137,7 +156,6 @@ router.post("/verifyOTP", async (req, res) => {
       return res.status(400).json({ message: "No pending verification" });
     }
 
-    // lockout after 5 bad attempts
     if (user.mfa.attempts >= 5) {
       return res.status(429).json({ message: "Too many attempts. Request a new code." });
     }
@@ -154,7 +172,6 @@ router.post("/verifyOTP", async (req, res) => {
       return res.status(400).json({ message: "Invalid code" });
     }
 
-    // success: clear OTP, issue cookie
     user.mfa = {};
     await user.save();
 
@@ -180,7 +197,7 @@ router.post("/verifyOTP", async (req, res) => {
   }
 });
 
-// Resend code with 30s cooldown
+// RESEND with 30s cooldown
 router.post("/requestOTP", async (req, res) => {
   try {
     const email = z.string().regex(EMAIL_RX).parse(req.body?.email ?? "");
@@ -190,7 +207,7 @@ router.post("/requestOTP", async (req, res) => {
     const now = Date.now();
     const last = user.mfa?.lastSentAt?.getTime?.() || 0;
     const delta = now - last;
-    const cooldownMs = 30_000; // 30s
+    const cooldownMs = 30_000;
 
     if (delta < cooldownMs) {
       const wait = Math.ceil((cooldownMs - delta) / 1000);
@@ -211,13 +228,13 @@ router.post("/requestOTP", async (req, res) => {
   }
 });
 
-// Simple logout
+// LOGOUT
 router.post("/logout", (req, res) => {
   res.clearCookie("auth", { httpOnly: true, sameSite: "strict", secure: false });
   return res.json({ message: "Logged out" });
 });
 
-// Session check
+// SESSION CHECK
 router.get("/me", async (req, res) => {
   try {
     const auth = req.cookies?.auth;
