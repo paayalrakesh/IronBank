@@ -2,9 +2,11 @@ import { Router } from "express";
 import { z } from "zod";
 import argon2 from "argon2";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { User } from "../models/User.js";
-import { EMAIL_RX, NAME_RX, ID_RX, ACCOUNT_RX, PASSWORD_RX } from "../patterns.js";
 import { Account } from "../models/Account.js";
+import { PasswordReset } from "../models/PasswordReset.js";
+import { EMAIL_RX, NAME_RX, ID_RX, ACCOUNT_RX, PASSWORD_RX } from "../patterns.js";
 
 const router = Router();
 
@@ -38,10 +40,7 @@ function sign(user) {
   );
 }
 
-function makeOTP() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
+function makeOTP() { return String(Math.floor(100000 + Math.random() * 900000)); }
 async function storeOtpForUser(user, code) {
   const otpHash = await argon2.hash(code, { type: argon2.argon2id });
   user.mfa = {
@@ -52,12 +51,9 @@ async function storeOtpForUser(user, code) {
   };
   await user.save();
 }
+function random10() { return String(Math.floor(1000000000 + Math.random() * 9000000000)); }
 
-function random10() {
-  return String(Math.floor(1000000000 + Math.random() * 9000000000));
-}
-
-// REGISTER (also create default accounts)
+// REGISTER (creates default accounts)
 router.post("/register", async (req, res) => {
   try {
     const input = registerSchema.parse(req.body);
@@ -82,39 +78,19 @@ router.post("/register", async (req, res) => {
     });
 
     await Account.create([
-      {
-        user: user._id,
-        number: input.accountNumber,
-        type: "Cheque",
-        currency: "ZAR",
-        balanceCents: 1250000
-      },
-      {
-        user: user._id,
-        number: random10(),
-        type: "Savings",
-        currency: "ZAR",
-        balanceCents: 2589000
-      }
+      { user: user._id, number: input.accountNumber, type: "Cheque", currency: "ZAR", balanceCents: 1250000 },
+      { user: user._id, number: random10(),         type: "Savings", currency: "ZAR", balanceCents: 2589000 }
     ]);
 
-    return res.status(201).json({
-      message: "Registered",
-      user: { id: user._id, email: user.email, role: user.role }
-    });
+    return res.status(201).json({ message: "Registered", user: { id: user._id, email: user.email, role: user.role } });
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ message: "Invalid input", issues: err.issues });
-    }
-    if (err?.code === 11000) {
-      return res.status(409).json({ message: "Email or account already registered" });
-    }
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
+    if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid input", issues: err.issues });
+    if (err?.code === 11000) return res.status(409).json({ message: "Email or account already registered" });
+    console.error(err); return res.status(500).json({ message: "Server error" });
   }
 });
 
-// LOGIN → generate OTP (no session yet)
+// LOGIN → generate OTP (no session cookie yet)
 router.post("/login", async (req, res) => {
   try {
     const input = loginSchema.parse(req.body);
@@ -124,10 +100,7 @@ router.post("/login", async (req, res) => {
       accountNumber: input.accountNumber
     }).exec();
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
-
-    if (input.role && input.role !== user.role) {
-      return res.status(403).json({ message: "Forbidden: role mismatch" });
-    }
+    if (input.role && input.role !== user.role) return res.status(403).json({ message: "Forbidden: role mismatch" });
 
     const ok = await argon2.verify(user.passwordHash, input.password);
     if (!ok) return res.status(401).json({ message: "Invalid credentials" });
@@ -138,11 +111,8 @@ router.post("/login", async (req, res) => {
 
     return res.json({ message: "OTP sent" });
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ message: "Invalid input", issues: err.issues });
-    }
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
+    if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid input", issues: err.issues });
+    console.error(err); return res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -152,13 +122,11 @@ router.post("/verifyOTP", async (req, res) => {
     const input = verifySchema.parse(req.body);
 
     const user = await User.findOne({ email: input.email.toLowerCase().trim() }).exec();
-    if (!user || !user.mfa?.otpHash || !user.mfa?.otpExpiresAt) {
+    if (!user || !user.mfa?.otpHash || !user.mfa?.otpExpiresAt)
       return res.status(400).json({ message: "No pending verification" });
-    }
 
-    if (user.mfa.attempts >= 5) {
+    if (user.mfa.attempts >= 5)
       return res.status(429).json({ message: "Too many attempts. Request a new code." });
-    }
 
     if (user.mfa.otpExpiresAt.getTime() < Date.now()) {
       user.mfa = {}; await user.save();
@@ -172,28 +140,14 @@ router.post("/verifyOTP", async (req, res) => {
       return res.status(400).json({ message: "Invalid code" });
     }
 
-    user.mfa = {};
-    await user.save();
+    user.mfa = {}; await user.save();
 
     const token = sign(user);
-    res.cookie("auth", token, {
-      httpOnly: true,
-      secure: false,          // true when HTTPS
-      sameSite: "strict",
-      maxAge: 1000 * 60 * 60 * 2
-    });
-
-    return res.json({
-      message: "MFA verified",
-      token,
-      user: { id: user._id, email: user.email, role: user.role }
-    });
+    res.cookie("auth", token, { httpOnly: true, secure: false, sameSite: "strict", maxAge: 1000 * 60 * 60 * 2 });
+    return res.json({ message: "MFA verified", token, user: { id: user._id, email: user.email, role: user.role } });
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ message: "Invalid input", issues: err.issues });
-    }
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
+    if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid input", issues: err.issues });
+    console.error(err); return res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -202,13 +156,12 @@ router.post("/requestOTP", async (req, res) => {
   try {
     const email = z.string().regex(EMAIL_RX).parse(req.body?.email ?? "");
     const user = await User.findOne({ email: email.toLowerCase().trim() }).exec();
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(200).json({ message: "If that email exists, a new code was sent." }); // no enumeration
 
     const now = Date.now();
     const last = user.mfa?.lastSentAt?.getTime?.() || 0;
     const delta = now - last;
     const cooldownMs = 30_000;
-
     if (delta < cooldownMs) {
       const wait = Math.ceil((cooldownMs - delta) / 1000);
       return res.status(429).json({ message: `Please wait ${wait}s before requesting a new code.` });
@@ -220,11 +173,8 @@ router.post("/requestOTP", async (req, res) => {
 
     return res.json({ message: "OTP resent" });
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ message: "Invalid email" });
-    }
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
+    if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid email" });
+    console.error(err); return res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -245,6 +195,75 @@ router.get("/me", async (req, res) => {
     return res.json({ id: user._id, email: user.email, role: user.role });
   } catch {
     return res.status(401).json({ message: "Invalid session" });
+  }
+});
+
+// ========== PASSWORD RESET FLOW ==========
+
+// POST /auth/forgot  { email }
+router.post("/forgot", async (req, res) => {
+  try {
+    const email = z.string().regex(EMAIL_RX).parse(req.body?.email ?? "");
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).exec();
+
+    // Always return 200 to avoid enumeration
+    if (!user) return res.json({ message: "If that email exists, we sent a reset link." });
+
+    // create token
+    const rawToken = crypto.randomBytes(32).toString("base64url");
+    const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // invalidate previous tokens
+    await PasswordReset.updateMany({ user: user._id, used: false }, { $set: { used: true } }).exec();
+
+    await PasswordReset.create({ user: user._id, tokenHash, expiresAt, used: false });
+
+    // DEV ONLY: print link to console (later: send via email)
+    const resetUrl = `http://localhost:5173/reset?token=${rawToken}&email=${encodeURIComponent(user.email)}`;
+    console.log(`✉️  Password reset for ${user.email}: ${resetUrl} (valid 15m)`);
+
+    return res.json({ message: "If that email exists, we sent a reset link." });
+  } catch (err) {
+    if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid email" });
+    console.error(err); return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /auth/reset { email, token, newPassword }
+router.post("/reset", async (req, res) => {
+  try {
+    const schema = z.object({
+      email: z.string().regex(EMAIL_RX),
+      token: z.string().min(10), // base64url string
+      newPassword: z.string().regex(PASSWORD_RX, "Password too weak")
+    });
+    const input = schema.parse(req.body);
+
+    const user = await User.findOne({ email: input.email.toLowerCase().trim() }).exec();
+    if (!user) return res.status(400).json({ message: "Invalid token or email" });
+
+    const pr = await PasswordReset.findOne({ user: user._id, used: false }).sort({ createdAt: -1 }).exec();
+    if (!pr || pr.expiresAt.getTime() < Date.now()) {
+      if (pr && pr.expiresAt.getTime() < Date.now()) { pr.used = true; await pr.save(); }
+      return res.status(400).json({ message: "Token expired. Please request a new reset link." });
+    }
+
+    const ok = await argon2.verify(pr.tokenHash, input.token);
+    if (!ok) return res.status(400).json({ message: "Invalid token." });
+
+    // set new password
+    const passwordHash = await argon2.hash(input.newPassword, { type: argon2.argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 });
+    user.passwordHash = passwordHash;
+    await user.save();
+
+    // consume token and clear session cookie
+    pr.used = true; await pr.save();
+
+    return res.json({ message: "Password updated. You can now sign in with your new password." });
+  } catch (err) {
+    if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid input", issues: err.issues });
+    console.error(err); return res.status(500).json({ message: "Server error" });
   }
 });
 

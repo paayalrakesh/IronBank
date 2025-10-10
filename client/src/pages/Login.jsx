@@ -175,8 +175,12 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                 />
               </div>
-              {errors.password && <small className="error">{errors.password}</small>}
-            </div>
+                  {errors.password && <small className="error">{errors.password}</small>}
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+                  <Link to="/forgot" className="link-btn">Forgot password?</Link>
+              </div>
+              </div>
+
 
             <button type="submit" className="btn" disabled={disabled}>
               {disabled ? "Please wait..." : "Login"}
